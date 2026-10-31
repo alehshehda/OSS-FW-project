@@ -1,6 +1,6 @@
 %***************************************************************************************************
 % main.tex - szkielet dokumentu. Dane dokumentu edytuj w config/metadata.tex,
-% treść w katalogach chapters/ i appendices/, a wygląd w preamble/ i config/theme-pwr.tex.
+% treść w katalogu chapters/, a wygląd w preamble/ i config/theme-pwr.tex.
 % Kompilacja: pdfLaTeX + BibTeX (na Overleaf: kompilator pdfLaTeX, plik główny main.tex).
 %***************************************************************************************************
 
@@ -27,9 +27,6 @@
 \pagestyle{frontstyle}
 
 \input{frontmatter/titlepage}
-\ifshowabstract
-    \input{frontmatter/abstract}
-\fi
 
 \clearpage\phantomsection
 \tableofcontents
@@ -44,10 +41,10 @@
 \pagestyle{mainstyle}
 
 \input{chapters/1_wstep}
-\input{chapters/2_przeglad}
-\input{chapters/3_metodyka}
-\input{chapters/4_realizacja}
-\input{chapters/5_wyniki}
+\input{chapters/2_podstawy_technologiczne}
+\input{chapters/3_projekt_rozwiazania}
+\input{chapters/4_implementacja}
+\input{chapters/5_testy_i_weryfikacja}
 \input{chapters/6_podsumowanie}
 
 % ============================== CZĘŚĆ KOŃCOWA ==============================
@@ -70,13 +67,6 @@
 \fi
 \ifshowlistofalgorithms
     \BackList{loastyle}{\listalgorithmcfname}{\listofalgorithms}
-\fi
-
-% ============================== ZAŁĄCZNIKI ==============================
-\ifshowappendices
-    \StartAppendices
-    \pagestyle{mainstyle}
-    \input{appendices/A_przykladowy}
 \fi
 
 \end{document}

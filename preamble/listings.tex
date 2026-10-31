@@ -1,8 +1,8 @@
 %***************************************************************************************************
 % preamble/listings.tex - jeden wspólny styl listingów (kod i wyjście terminala).
 % Użycie: \begin{lstlisting}[caption={Opis}, label={lst:etykieta}] ... \end{lstlisting}
-%         \begin{lstlisting}[style=code, language=Python, ...] ... \end{lstlisting}
-%         \lstinputlisting[style=code, language=C, caption={...}, label={...}]{plik.c}
+%         \begin{lstlisting}[style=code, language=PowerShell, ...] ... \end{lstlisting}
+%         \lstinputlisting[style=code, language=PowerShell, caption={...}, label={...}]{plik.ps1}
 %***************************************************************************************************
 
 % Polskie znaki w listingach (pdfLaTeX + UTF-8); mapowanie zdefiniowane tylko tutaj
@@ -14,6 +14,18 @@
     {ó}{{\'o}}1 {ś}{{\'s}}1 {ź}{{\'z}}1 {ż}{{\.z}}1
     {Ą}{{\k{A}}}1 {Ć}{{\'C}}1 {Ę}{{\k{E}}}1 {Ł}{{\L{}}}1 {Ń}{{\'N}}1
     {Ó}{{\'O}}1 {Ś}{{\'S}}1 {Ź}{{\'Z}}1 {Ż}{{\.Z}}1
+}
+
+% Definicja języka PowerShell dla pakietu listings
+\lstdefinelanguage{PowerShell}{
+  morekeywords=[1]{function,if,else,elseif,switch,while,for,foreach,in,do,until,break,continue,return,try,catch,finally,throw,param,begin,process,end,filter,class,enum},
+  morekeywords=[2]{Get-NetFirewallRule,New-NetFirewallRule,Set-NetFirewallRule,Remove-NetFirewallRule,Enable-NetFirewallRule,Disable-NetFirewallRule,Get-NetFirewallProfile,Set-NetFirewallProfile,Get-NetFirewallAddressFilter,Get-NetFirewallPortFilter,Get-NetConnectionProfile,Write-Host,Read-Host,Clear-Host,Select-Object,Where-Object,ForEach-Object,Sort-Object,Format-Table,Out-Null,Out-File,Add-Content,Get-Content,Test-Path,Get-Date,Export-Csv,Import-Csv,ConvertTo-Json,ConvertFrom-Json},
+  sensitive=false,
+  morecomment=[l]{\#},
+  morecomment=[s]{<\#}{\#>},
+  morestring=[b]",
+  morestring=[b]',
+  alsoletter={-}
 }
 
 % Styl bazowy
@@ -45,7 +57,8 @@
   numbersep=6pt,
   xleftmargin=1.6em,
   framexleftmargin=1.6em,
-  keywordstyle=\bfseries\color{Accent},
+  keywordstyle=[1]\bfseries\color{Accent},
+  keywordstyle=[2]\bfseries\color{NavyBlue},
   commentstyle=\itshape\color{dgray},
   stringstyle=\color{DarkGreen},
 }

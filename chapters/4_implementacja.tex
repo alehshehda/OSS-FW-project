@@ -1,0 +1,27 @@
+\chapter{Implementacja modułów funkcjonalnych}\label{ch:implementacja}
+
+\section{Moduł zarządzania regułami blokującymi i zezwalającymi na ruch (porty i adresy IP)}\label{sec:modul-reguly}
+
+\subsection{Interaktywny kreator reguł przychodzących (Inbound) i wychodzących (Outbound)}\label{subsec:kreator-regul}
+
+\subsection{Walidacja danych wejściowych i tworzenie nowych reguł zapory}\label{subsec:implementacja-new-rule}
+
+\subsection{Przeglądanie, filtrowanie i usuwanie istniejących reguł}\label{subsec:przegladanie-usuwanie-regul}
+
+\section{Moduł automatycznego włączania i wyłączania reguł w zależności od profilu sieci}\label{sec:modul-profile}
+
+\subsection{Detekcja aktywnego profilu sieciowego systemu}\label{subsec:detekcja-profilu}
+
+\subsection{Dynamiczna aktywacja i dezaktywacja reguł dla profili Domain, Private i Public}\label{subsec:aktywacja-regul-profil}
+
+\section{Moduł logowania wszystkich zmian w polityce zapory}\label{sec:modul-logowanie}
+
+\subsection{Rejestrowanie operacji dodawania, modyfikacji i usuwania reguł}\label{subsec:rejestrowanie-operacji}
+
+\subsection{Struktura pliku dziennika audytu i identyfikacja kontekstu wykonania (kto, co, kiedy)}\label{subsec:struktura-pliku-audytu}
+
+\section{Moduł tworzenia kopii zapasowej i przywracania ustawień zapory}\label{sec:modul-backup}
+
+\subsection{Eksport bieżącej polityki i reguł zapory do pliku kopii zapasowej}\label{subsec:eksport-konfiguracji}
+
+\subsection{Procedura przywracania stanu zapory i weryfikacja spójności kopii}\label{subsec:import-konfiguracji}

@@ -1,0 +1,32 @@
+# Automatyczna detekcja plików tekstowych i wymuszenie końców linii LF (kompatybilność z Overleaf / Linux / macOS / Windows)
+* text=auto eol=lf
+
+# Pliki LaTeX, BibTeX, skrypty i dokumentacja
+*.tex text eol=lf diff=tex
+*.bib text eol=lf
+*.bst text eol=lf
+*.sty text eol=lf
+*.cls text eol=lf
+*.md  text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ps1 text eol=lf
+*.csv text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.gitkeep text eol=lf
+
+# Pliki binarne (grafiki, prezentacje i dokumenty PDF) - brak konwersji końców linii i diffów tekstowych
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.eps  binary
+*.ico  binary
+*.zip  binary
+*.pptx binary
+*.docx binary
+*.xlsx binary
