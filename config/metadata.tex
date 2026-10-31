@@ -1,0 +1,56 @@
+%***************************************************************************************************
+% config/metadata.tex - JEDYNE miejsce, które edytujesz przy tworzeniu nowego dokumentu.
+% Tytuł, przedmiot, autorzy, data oraz przełączniki opcjonalnych części dokumentu.
+% Nie używaj tu \today - data i skrót na stronie tytułowej są wpisywane ręcznie.
+%***************************************************************************************************
+
+% ---------------------------------------------------------------------------------------------
+% Dane dokumentu (widoczne na stronie tytułowej)
+% ---------------------------------------------------------------------------------------------
+\newcommand{\DocType}{Raport}                       % np. Raport, Sprawozdanie, Projekt
+\newcommand{\DocTitle}{Tytuł dokumentu}             % tytuł (może być długi, zawija się)
+
+\newcommand{\Course}{Nazwa kierunku studiów}        % kierunek studiów
+\newcommand{\Subject}{Nazwa przedmiotu}             % przedmiot - pojawia się też w stopce każdej strony
+\newcommand{\GroupInfo}{Grupa nr X / dzień tygodnia, godz. 00:00 - 00:00}
+
+\newcommand{\AuthorsLabel}{Autorzy}                 % etykieta nad listą autorów (np. Autor)
+\newcommand{\Authors}{%                             % linie rozdzielaj przez \\ (bez \\ na końcu)
+    Imię Nazwisko, 000000\\
+    email: 000000@student.pwr.edu.pl
+}
+
+\newcommand{\SupervisorLabel}{Prowadzący}           % etykieta nad danymi prowadzącego
+\newcommand{\Supervisor}{%
+    tytuł Imię Nazwisko\\
+    email: imie.nazwisko@pwr.edu.pl
+}
+
+% Miejscowość i data - wpisywane ręcznie (świadomie bez \today).
+\newcommand{\PlaceDate}{Wrocław, 2026}
+
+% Linia ze skrótem na stronie tytułowej. Dowolny napis; pozostaw pusty (\newcommand{\DocumentHash}{}),
+% aby ją ukryć. Domyślnie: skrót pustego ciągu danych (czysto dekoracyjny).
+\newcommand{\DocumentHash}{4d765532542ad27ee8332d18c750238d7d4ec295ca117fb7aeca216a0339bdf0}
+
+% Autor w metadanych pliku PDF (bez znaków \\ i adresów e-mail)
+\newcommand{\PdfAuthor}{Imię Nazwisko}
+
+% ---------------------------------------------------------------------------------------------
+% Przełączniki opcjonalnych części dokumentu: \...true = pokaż, \...false = ukryj
+% ---------------------------------------------------------------------------------------------
+\newif\ifshowabstract         \showabstractfalse          % Streszczenie przed spisem treści
+\newif\ifshowabbreviations    \showabbreviationsfalse     % Spis skrótów po spisie treści
+\newif\ifshowbibliography     \showbibliographytrue       % Bibliografia (BibTeX, bib/references.bib)
+\newif\ifshowlistoffigures    \showlistoffigurestrue      % Spis rysunków
+\newif\ifshowlistoftables     \showlistoftablestrue       % Spis tabel
+\newif\ifshowlistoflistings   \showlistoflistingstrue     % Spis listingów
+\newif\ifshowlistofalgorithms \showlistofalgorithmstrue   % Spis algorytmów
+\newif\ifshowappendices       \showappendicestrue         % Załączniki
+
+% Wersja do druku: wyłącza kolorowe odnośniki w PDF (\printversiontrue)
+\newif\ifprintversion         \printversionfalse
+
+% Domyślne umiejscowienie rysunków wstawianych makrem \Figure
+% (H = dokładnie w miejscu wywołania; htbp = pozwól LaTeX-owi przesuwać)
+\newcommand{\DefaultFigurePlacement}{H}
