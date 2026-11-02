@@ -16,9 +16,52 @@
 
 \section{Moduł logowania wszystkich zmian w polityce zapory}\label{sec:modul-logowanie}
 
+Moduł audytu jest zaimplementowany w pliku \file{firewall.ps1} w bloku \texttt{\#region AUDIT}, wymaga Windows PowerShell 5.1 (Desktop) i uprawnień administratora. Opcje menu 5--8 obsługują podgląd dziennika, weryfikację integralności, ręczne uzgodnienie i instalację watchera. Skrypt uruchomiony z parametrem \code{-SyncAudit} wykonuje tylko uzgodnienie i kończy działanie; w ten sposób korzysta z niego zadanie harmonogramu.
+
 \subsection{Rejestrowanie operacji dodawania, modyfikacji i usuwania reguł}\label{subsec:rejestrowanie-operacji}
 
+Migawkę polityki buduje \cmd{Get-PolicySnapshot}, która czyta rejestr (sekcja~\ref{subsec:magazyn-polityki-rejestr}) i parsuje łańcuchy \code{v2.xx|Klucz=Wartość|...} do słowników. Klucze powtarzane (np. wiele wartości \code{Profile}) trafiają na posortowane listy, a znak \code{|} wewnątrz wartości jest sklejany z powrotem. Wartości są normalizowane (kierunek \code{Dir=Out} jako \code{Outbound}, protokół \code{6} jako \code{TCP}, brak portu i \code{*} jako \code{Any}), a zmienne środowiskowe nie są rozwijane. Dzięki temu \cmd{Compare-PolicySnapshot} nie zgłasza zmian wynikających wyłącznie z wielkości liter lub kolejności elementów listy, a dla zmodyfikowanego obiektu zwraca dokładnie zmienione pola (\code{field}, \code{from}, \code{to}). Migawka może używać ponownie sparsowanych wpisów, jeśli surowy łańcuch reguły się nie zmienił, co skraca pełne porównanie z kilku sekund do około sekundy (sekcja~\ref{sec:testy-logowania}).
+
+Istniejące operacje z menu są opakowane w \cmd{Invoke-AuditedChange} (listing~\ref{lst:opakowanie-menu}). Wrapper przechwytuje błędy akcji, zapisuje je w rekordzie \code{result} i zgłasza dalej, więc obsługa błędów kreatora pozostaje bez zmian.
+
+\begin{lstlisting}[style=code, language=PowerShell, caption={Opakowanie operacji dodawania i usuwania reguły},label={lst:opakowanie-menu}]
+[void](Invoke-AuditedChange -Operation 'Remove' -Scope Names `
+    -Names @($ruleToDelete.Name) `
+    -Reason 'Interactive delete (menu option 4)' `
+    -Details @{ expectedDisplayName = $ruleToDelete.DisplayName } `
+    -Action { Remove-NetFirewallRule -Name $ruleToDelete.Name -ErrorAction Stop })
+
+[void](Invoke-AuditedChange -Operation 'Add' -Scope NewRules `
+    -Reason "Interactive add (menu option $choice)" `
+    -Action { New-NetFirewallRule @parameters -ErrorAction Stop | Out-Null })
+\end{lstlisting}
+
+Parametr \code{-Details} z \code{expectedDisplayName} pozwala wykryć sytuację, w której między wyświetleniem listy a usunięciem numer wskazuje inną regułę (TOCTOU); w takim przypadku do rekordu \code{intent} trafia ostrzeżenie. Przed własną zmianą wrapper porównuje migawkę z bazową; wykryty dryf jest zapisywany jako \code{change} z \code{detection=pre-change}, dzięki czemu zewnętrzna zmiana nie zostanie błędnie przypisana operacji narzędzia.
+
 \subsection{Struktura pliku dziennika audytu i identyfikacja kontekstu wykonania (kto, co, kiedy)}\label{subsec:struktura-pliku-audytu}
+
+Dane audytu znajdują się w katalogu \file{C:\ProgramData\FirewallAudit}: \file{audit.jsonl} (aktywny dziennik), \file{audit-*.jsonl} (pliki po rotacji), \file{baseline.json} (stan odniesienia: wpisy, surowe łańcuchy reguł, skrót i czas) oraz \file{bin\firewall.ps1} (chroniona kopia dla watchera). Przykładowy rekord \code{change} (skrócony) pokazuje listing~\ref{lst:rekord-change}.
+
+\begin{lstlisting}[caption={Skrócony rekord change w dzienniku audytu},label={lst:rekord-change}]
+{"v":1,"seq":42,"ts":"2026-11-02T15:10:03.412Z","host":"PC01",
+ "type":"change","txid":"3f9c...","recorder":{"user":"PC01\\admin",
+ "initiator":"interactive","elevated":true,"pid":8120,...},
+ "op":"Added","kind":"rule","ruleId":"{A1B2...}",
+ "displayName":"OSO-Block-TCP-80","source":"oso","detection":"wrapper",
+ "actor":{"user":"PC01\\admin","application":"firewall.ps1","evidence":"process"},
+ "before":null,"after":{"action":"Block","direction":"Inbound",...},
+ "changes":[],"prev":"9d1e...","hash":"c47a..."}
+\end{lstlisting}
+
+Zapis rekordu realizuje \cmd{Write-AuditRecord} pod globalnym muteksem: odczytuje ogon aktywnego pliku (numer kolejny i skrót poprzedniego rekordu, z pamięci podręcznej), buduje JSON, liczy SHA-256, dopisuje wiersz przez \code{FileStream} z \code{WriteThrough} i, jeśli poprzedni zapis został urwany (brak końca wiersza), najpierw dopisuje separator i rekord \code{integrity}. Rotacja następuje przy przekroczeniu 10~MB. Aktualizacja \file{baseline.json} jest atomowa (zapis do pliku tymczasowego i \code{File.Replace}), a skrót bazy jest zapisywany także w dzienniku, dzięki czemu ręczna edycja bazy jest wykrywana (\code{baseline-file-modified}, \code{baseline-log-mismatch}).
+
+Atrybucja „kto” dla zmian zewnętrznych korzysta z dziennika zdarzeń: \cmd{Get-AuditEventIndex} indeksuje zdarzenia zapory po identyfikatorze reguły, a \cmd{Resolve-AuditActors} dopasowuje je do zmian w oknie czasowym od ostatniego uzgodnienia, tłumacząc SID na konto. Dla ustawień profili zdarzenie jest użyte tylko wtedy, gdy wszystkie zdarzenia w oknie pochodzą od jednego konta i aplikacji, aby nie przypisać zmiany niewłaściwej osobie. Gdy dziennik jest wyłączony lub nie ma dopasowania, \code{actor.user} wynosi \code{unknown} i dołączane jest okno czasowe, a menu ostrzega o wyłączonym dzienniku.
+
+Watcher jest instalowany przez \cmd{Install-AuditWatcher} jako zadanie \file{\FirewallAudit\Watcher} (konto SYSTEM, wyzwalacz zdarzeniowy dla identyfikatorów zapory oraz start systemu, \code{MultipleInstances=IgnoreNew}). Przed instalacją skrypt kopiuje się do \file{bin}, ustawia ACL poleceniem \cmd{icacls} i weryfikuje właściciela katalogu; \cmd{Uninstall-AuditWatcher} usuwa zadanie, nie kasując danych audytu.
+
+\subsubsection*{Ograniczenia implementacji}
+
+Moduł zakłada Windows PowerShell 5.1 (nie działa w PowerShell~7). Wielkość migawki zależy od liczby reguł; na maszynie testowej (562 obiekty polityki) pełne sparsowanie trwa około 3,3~s. Starszy skrypt \file{FirewallRules.ps1} nie korzysta z wrappera; jego zmiany zostaną wykryte przez watcher jako \code{source=external}. Listowanie reguł w istniejącym kreatorze (\cmd{Get-NetFirewallRule}) jest bardzo wolne i nie należy do modułu audytu.
 
 \section{Moduł tworzenia kopii zapasowej i przywracania ustawień zapory}\label{sec:modul-backup}
 

@@ -20,3 +20,19 @@
 
 \subsection{Wymagania bezpieczeństwa, uprawnienia administratora i polityki wykonywania skryptów (ExecutionPolicy)}\label{subsec:uprawnienia-executionpolicy}
 
+\section{Źródła informacji o zmianach polityki zapory}\label{sec:zrodla-zmian-polityki}
+
+Audyt zmian polityki zapory wymaga odpowiedzi na trzy pytania: \emph{co} się zmieniło, \emph{kiedy} i \emph{kto} to zmienił. System Windows nie dostarcza jednego źródła, które odpowiadałoby na wszystkie trzy, dlatego opracowane rozwiązanie łączy kilka mechanizmów opisanych poniżej.
+
+\subsection{Trwały magazyn polityki w rejestrze}\label{subsec:magazyn-polityki-rejestr}
+
+Reguły i ustawienia profili są przechowywane w kluczu \path{HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy}. Podklucz \file{FirewallRules} zawiera jedną wartość tekstową na regułę: nazwą wartości jest identyfikator reguły (właściwość \code{Name}), a danymi łańcuch postaci \code{v2.xx|Action=Block|Dir=In|...}. Ustawienia profili leżą w podkluczach \file{DomainProfile}, \file{StandardProfile} (profil prywatny) i \file{PublicProfile}, wraz z podkluczem \file{Logging}. Odczyt całego magazynu trwa ułamki sekundy, podczas gdy zbudowanie tej samej migawki poleceniami z modułu NetSecurity (\cmd{Get-NetFirewallRule} wraz z filtrami adresów i portów) zajmuje na testowej maszynie kilkadziesiąt sekund, ponieważ każde polecenie wykonuje osobne zapytania CIM \cite{ms-netsecurity-module}. Z tego powodu moduł audytu wykonuje migawkę polityki bezpośrednio z rejestru (tylko do odczytu), a modyfikacje nadal wykonują oficjalne polecenia cmdlet.
+
+\subsection{Dziennik zdarzeń zapory i podkategoria audytu}\label{subsec:dziennik-zdarzen-zapory}
+
+Zapora zapisuje zmiany w dzienniku \emph{Microsoft-Windows-Windows Firewall With Advanced Security/Firewall}. Zdarzenia opisują dodanie, modyfikację i usunięcie reguły oraz zmianę ustawień profilu, a zawierają identyfikator reguły, SID konta i ścieżkę aplikacji, która zmianę wykonała. Numery zdarzeń różnią się między wersjami systemu (dodanie: 2004 lub 2097, modyfikacja: 2005, 2098 lub 2099, usunięcie: 2006 lub 2052, usunięcie wszystkich: 2033 lub 2059, ustawienia: 2002 i 2003), dlatego implementacja rozpoznaje zbiór identyfikatorów, a nie jedną wartość. Szczegółowy zapis zmian w dzienniku Security wymaga włączenia podkategorii audytu \emph{MPSSVC Rule-Level Policy Change} \cite{ms-audit-mpssvc}. Narzędzie sprawdza stan dziennika i podkategorii i jedynie ostrzega, jeśli są wyłączone; nie zmienia konfiguracji audytu systemu bez zgody administratora.
+
+\subsection{Harmonogram zadań jako mechanizm wyzwalany zdarzeniami}\label{subsec:harmonogram-zdarzenia}
+
+Harmonogram zadań Windows potrafi uruchomić zadanie w odpowiedzi na zdarzenie z wybranego dziennika oraz przy starcie systemu. Pozwala to wykryć zmiany wykonane poza narzędziem (konsola graficzna, \cmd{netsh advfirewall}, zasady grupy, inne skrypty) bez stale działającego procesu. Zadanie działa na koncie \emph{SYSTEM}, więc kod uruchamiany przez nie musi być chroniony przed modyfikacją przez zwykłych użytkowników; zagadnienie to omówiono w sekcji~\ref{subsec:model-zagrozen}.
+

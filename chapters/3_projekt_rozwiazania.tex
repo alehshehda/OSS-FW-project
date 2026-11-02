@@ -16,7 +16,60 @@
 
 \section{Projekt podsystemu logowania i audytu zmian polityki}\label{sec:projekt-logowania}
 
+Podsystem audytu rejestruje \emph{wszystkie} zmiany polityki zapory: zarówno wykonane przez opracowane narzędzie, jak i wprowadzone poza nim. Przyjęto zasadę pełnej widoczności: nie agreguje się ani nie filtruje zdarzeń, a źródło zmiany jest jedynie oznaczane (pole \code{source}). Kod audytu jest jednym blokiem \texttt{\#region AUDIT} w pliku \file{firewall.ps1}, a pozostałe moduły (dodawanie reguł, przełączanie profili, kopie zapasowe) korzystają z niego przez jedną funkcję \cmd{Invoke-AuditedChange}.
+
 \subsection{Format wpisów dziennikowych i rejestrowane atrybuty zdarzeń}\label{subsec:format-logow}
+
+Dziennik ma format JSON Lines \cite{jsonlines}: jeden rekord to jeden wiersz tekstu w kodowaniu UTF-8 bez BOM, a znaczniki czasu są zapisywane w UTC (ISO 8601). Format jest czytelny dla człowieka, daje się przetwarzać narzędziowo (\cmd{ConvertFrom-Json}) i pozwala na dopisywanie bez przepisywania pliku. Wszystkie rekordy mają wspólny nagłówek: \code{v} (wersja schematu), \code{seq} (numer kolejny), \code{ts}, \code{host}, \code{type}, \code{txid} (identyfikator transakcji), \code{recorder} (kto zapisał rekord: konto, SID, uprawnienia, PID, skrót SHA-256 skryptu), a na końcu \code{prev} i \code{hash} (łańcuch skrótów, sekcja~\ref{subsec:integralnosc-logu}). Typy rekordów zestawiono w tabeli~\ref{tab:typy-rekordow}.
+
+\begin{table}[H]
+\centering
+\caption{Typy rekordów dziennika audytu}\label{tab:typy-rekordow}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\hcell{Typ} & \hcell{Znaczenie} \\
+\midrule
+\code{baseline} & utworzenie stanu odniesienia (pełna migawka polityki) \\
+\code{intent} & zamiar zmiany zapisany \emph{przed} wykonaniem akcji (operacja, zakres, powód, szczegóły) \\
+\code{change} & pojedyncza rzeczywista zmiana: \code{op} (Added/Removed/Modified), \code{kind} (rule/profile), \code{ruleId}, \code{displayName}, \code{source}, \code{detection}, \code{actor}, stan \code{before} i \code{after} oraz lista \code{changes} (\code{field}, \code{from}, \code{to}) \\
+\code{result} & wynik transakcji: \code{success}, \code{failed} lub \code{recovered}, liczniki, ewentualny błąd \\
+\code{sync} & podsumowanie uzgodnienia z polityką (liczniki, okno czasowe) \\
+\code{rotation} & pierwszy rekord nowego pliku po rotacji (przenosi łańcuch skrótów) \\
+\code{integrity} & wykryty problem spójności: ręcznie zmieniony plik bazowy, niezgodność z logiem, urwany zapis \\
+\code{error} & błąd wewnętrzny modułu audytu \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Pole \code{actor} w rekordzie \code{change} odpowiada na pytanie „kto”. Dla zmian wykonanych przez narzędzie jest to tożsamość procesu (\code{evidence=process}). Dla zmian wykrytych później jest ustalane na podstawie dziennika zdarzeń zapory przez dopasowanie identyfikatora reguły (\code{evidence=eventlog}: konto, SID, aplikacja); gdy dowodów brak, wpis ma \code{user=unknown} i zawiera okno czasowe, w którym zmiana nastąpiła. Pole \code{source} przyjmuje wartości \code{oso} (to narzędzie), \code{system} (sam Windows, np. reguły wbudowane) i \code{external} (pozostałe). Pole \code{detection} mówi, jak zmianę znaleziono: \code{wrapper} (przy wywołaniu \cmd{Invoke-AuditedChange}), \code{reconcile} (uzgodnienie z polityką) lub \code{pre-change} (rozbieżność wykryta tuż przed własną zmianą).
+
+\subsection{Przepływ audytowanej zmiany i integracja z pozostałymi modułami}\label{subsec:przeplyw-audytu}
+
+Każda zmiana polityki wykonywana przez narzędzie przechodzi przez \cmd{Invoke-AuditedChange} (listing~\ref{lst:przeplyw-audytu}). Funkcja stosuje zasadę \emph{write-ahead}: zamiar zostaje zapisany na dysku przed wywołaniem akcji, a jeśli zapis nie jest możliwy, akcja nie jest wykonywana (\emph{fail-closed}). Do dziennika trafia faktyczna różnica między migawkami polityki przed i po akcji, a nie deklaracja wywołującego, więc wpis jest prawdziwy także wtedy, gdy akcja zmieniła więcej, niż zamierzano, albo zakończyła się częściowo.
+
+\begin{lstlisting}[caption={Przepływ transakcji audytowanej},label={lst:przeplyw-audytu}]
+1. Baseline: wczytaj stan odniesienia (lub utworz go)
+2. Migawka "przed" (tylko zakres zmiany: Names/NewRules/Profiles/All)
+3. Dryf: jesli migawka != baseline -> zapisz change(detection=pre-change)
+4. Zapis rekordu intent  (blad zapisu => STOP, akcja nie jest wykonana)
+5. Wykonanie akcji (scriptblock z cmdletami NetSecurity)
+6. Migawka "po" -> diff -> rekordy change (po jednym na obiekt)
+7. Zapis rekordu result (success / failed + blad)
+8. Aktualizacja baseline (atomowo) - sync nie zduplikuje wpisow
+9. Blad akcji jest zglaszany dalej do wywolujacego
+\end{lstlisting}
+
+Moduły pozostałych członków zespołu integrują się następująco: dodawanie reguł wywołuje \cmd{Invoke-AuditedChange -Operation Add -Scope NewRules}, usuwanie \cmd{-Scope Names -Names <identyfikatory>}, przełączanie reguł według profilu sieci \cmd{-Scope Names} (lub \cmd{All}, gdy zmiana dotyczy wielu reguł), a import kopii zapasowej \cmd{-Scope All}, ponieważ przywrócenie zastępuje całą politykę. Zmiany ustawień profili (włączenie lub wyłączenie zapory dla profilu) są objęte zakresem \cmd{Profiles}. Uruchomienia automatyczne (zadanie harmonogramu) oznaczają się parametrem \code{-Initiator}, co trafia do pola \code{recorder.initiator}.
+
+\subsection{Wykrywanie zmian wykonanych poza narzędziem}\label{subsec:wykrywanie-zewnetrznych}
+
+Zmiany z konsoli graficznej, \cmd{netsh}, zasad grupy czy innych skryptów omijają wrapper. Wykrywa je funkcja uzgodnienia (\cmd{Invoke-AuditSync}), która porównuje bieżącą migawkę z zapisanym stanem odniesienia i dla każdej różnicy zapisuje rekord \code{change} z atrybucją na podstawie dziennika zdarzeń. Uruchamia ją (a) skrypt przy starcie, (b) użytkownik z menu, (c) watcher, czyli zadanie harmonogramu wyzwalane zdarzeniami zapory i startem systemu. Watcher czeka na ustabilizowanie się zmian (3 s ciszy, maksymalnie 30 s), aby zebrać serię operacji, np. import setek reguł, w jedno uzgodnienie. Przerwane transakcje (rekord \code{intent} bez \code{result}, np. po awarii lub zabiciu procesu) są zamykane rekordem \code{result} ze statusem \code{recovered} i powiązane z rzeczywistą zmianą przez \code{relatedTxids}.
+
+\subsection{Integralność dziennika i model zagrożeń}\label{subsec:integralnosc-logu}\label{subsec:model-zagrozen}
+
+Każdy rekord zawiera skrót SHA-256 własnej treści wraz ze skrótem poprzedniego rekordu (\code{prev}), co tworzy łańcuch w duchu pracy \cite{schneier-kelsey-1999}. Zmiana, usunięcie lub zamiana kolejności rekordów zrywa łańcuch i jest wykrywana przez weryfikację (menu, opcja 6). Rotacja przy 10~MB przenosi stary plik do \file{audit-yyyyMMdd-HHmmssfff.jsonl}, a nowy plik zaczyna się rekordem \code{rotation} z końcem poprzedniego łańcucha, więc brakujący plik jest wykrywany. Zgodnie z zaleceniami zarządzania logami \cite{nist-sp800-92} dziennik rozszerza się o numery kolejne i czas UTC. Zapis jest serializowany globalnym muteksem \cite{ms-mutex} (\code{Global\FirewallAuditLog}), co chroni przed wyścigiem między sesją interaktywną a watcherem; po awarii procesu w trakcie zapisu muteks jest przejmowany (\emph{abandoned}), a urwany wiersz jest wykrywany i oznaczany rekordem \code{integrity}.
+
+Przyjęto następujący model zagrożeń. Łańcuch skrótów \emph{wykrywa} modyfikacje, lecz nie \emph{zapobiega} im: administrator lokalny może przeliczyć cały łańcuch, dlatego zalecane jest okresowe wyniesienie ostatniego skrótu poza maszynę (np. do systemu centralnego). Zwykły użytkownik nie może zmienić kodu uruchamianego przez watcher, ponieważ zadanie wykonuje chronioną kopię skryptu z katalogu \file{C:\ProgramData\FirewallAudit\bin} z listą ACL: pełna kontrola dla SYSTEM i Administratorów, odczyt dla Users; przed instalacją sprawdzany jest właściciel katalogu. Atakujący z uprawnieniami administratora może wyłączyć zadanie, dlatego menu pokazuje stan watchera, a przy następnym uruchomieniu uzgodnienie nadrabia zaległe zmiany (z oznaczeniem \code{detection=reconcile}).
 
 \section{Koncepcja mechanizmu kopii zapasowych i odtwarzania konfiguracji}\label{sec:koncepcja-backup}
 

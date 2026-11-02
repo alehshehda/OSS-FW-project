@@ -12,6 +12,47 @@
 
 \section{Weryfikacja poprawności logowania zmian i audytu polityki zapory}\label{sec:testy-logowania}
 
+Moduł audytu ma zautomatyzowany zestaw testów (\file{tests/Test-FirewallAudit.ps1}), uruchamiany w Windows PowerShell 5.1 bez uprawnień administratora. Testy wyodrębniają blok \texttt{\#region AUDIT} i wykonują go w piaskownicy: katalog tymczasowy zamiast \file{C:\ProgramData\FirewallAudit}, atrapa magazynu polityki w gałęzi \code{HKCU} zamiast prawdziwego rejestru zapory oraz prywatny muteks. Prawdziwa polityka nie jest zmieniana; ostatnia sekcja wyłącznie ją czyta. Dziennik zdarzeń jest w jednym teście zastąpiony atrapą (indeks zdarzeń), aby deterministycznie sprawdzić atrybucję.
+
+Wynik ostatniego uruchomienia: \textbf{67 asercji zaliczonych, 0 niezaliczonych} (czas około 2,5 min, głównie sekcja z prawdziwym magazynem i testy współbieżne). Zakres sekcji zestawia tabela~\ref{tab:testy-audytu}.
+
+\begin{table}[H]
+\centering
+\caption{Zakres testów automatycznych modułu audytu}\label{tab:testy-audytu}
+\begin{tabularx}{\textwidth}{Xr X}
+\toprule
+\hcell{Sekcja} & \hcell{Asercje} & \hcell{Co sprawdza} \\
+\midrule
+Parser i normalizacja & 8 & kierunek, protokół, porty, listy, znak \code{|}, zmienne środowiskowe \\
+Porównanie migawek & 4 & niewrażliwość na kolejność i wielkość liter, Added/Removed/Modified \\
+Łańcuch skrótów & 9 & edycja, usunięcie, zamiana kolejności, urwany wiersz, brak BOM \\
+Rotacja & 4 & ciągłość łańcucha, brakujący plik \\
+\cmd{Invoke-AuditedChange} & 15 & Add/Remove, kolejność rekordów, błąd akcji, częściowy sukces, fail-closed, TOCTOU \\
+Uzgodnienie zmian zewnętrznych & 8 & dodanie, usunięcie, modyfikacje, profil, brak duplikatów \\
+Dryf przed zmianą & 3 & \code{detection=pre-change} \\
+Przerwane transakcje & 3 & \code{status=recovered}, powiązanie, brak ponownego odzyskania \\
+Manipulacja bazą & 3 & zmieniony i uszkodzony \file{baseline.json} \\
+Atrybucja z dziennika zdarzeń & 4 & źródło system/external, SID na konto, żywy dziennik \\
+Współbieżność & 1 & 2 procesy, 50 rekordów, ciągły \code{seq} i łańcuch \\
+Prawdziwy magazyn (odczyt) & 5 & 562 obiekty, powtarzalny skrót bazy, zerowy diff \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Scenariusze krytyczne dla wiarygodności audytu przebiegły następująco:
+
+\begin{itemize}
+  \item \textbf{Zmiana przez narzędzie:} dodanie i usunięcie reguły daje rekordy \code{intent}, \code{change}, \code{result} o wspólnym \code{txid}, a bezpośrednio następujące uzgodnienie nie zapisuje duplikatów.
+  \item \textbf{Niedostępny dziennik:} przy zablokowanym pliku dziennika akcja nie jest wykonywana, a polityka pozostaje bez zmian (fail-closed).
+  \item \textbf{Zmiana poza narzędziem:} cztery zmiany (dodanie, usunięcie, dwie modyfikacje, w tym profil Public: \code{enableFirewall} 1 $\rightarrow$ 0) są zapisane z \code{source=external}; bez dowodów w dzienniku zdarzeń aktor to \code{unknown} wraz z oknem czasowym.
+  \item \textbf{Manipulacja dziennikiem:} edycja, usunięcie i zamiana kolejności rekordów oraz brakujący plik po rotacji są wykrywane przez weryfikację.
+  \item \textbf{Awaria w trakcie transakcji:} osierocony \code{intent} jest zamykany rekordem \code{recovered} z odnośnikiem do faktycznej zmiany.
+\end{itemize}
+
+Test na prawdziwym magazynie polityki (562 obiekty) pokazał, że pełne sparsowanie zajmuje około 3,3~s, a migawka z ponownym użyciem niezmienionych wpisów około 1,1~s przy 0,45~s porównania i zerowej liczbie różnic. Pomiar na jednej maszynie ma charakter orientacyjny.
+
+Nie zostały zautomatyzowane i wymagają ręcznej weryfikacji na maszynie z uprawnieniami administratora: instalacja zadania harmonogramu (wyzwolenie zdarzeniem po zmianie reguły w konsoli graficznej), ustawienie ACL katalogu \file{bin} oraz atrybucja na prawdziwych zdarzeniach z włączonym audytem \emph{MPSSVC Rule-Level Policy Change}.
+
 \section{Testy procedury tworzenia kopii zapasowej i odtwarzania konfiguracji}\label{sec:testy-backup}
 
 \section{Podsumowanie wyników testów}\label{sec:podsumowanie-testow}
