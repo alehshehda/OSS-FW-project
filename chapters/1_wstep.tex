@@ -1,19 +1,102 @@
 \chapter{Wstęp i założenia projektowe}\label{ch:wstep}
 
-\section{Wprowadzenie i uzasadnienie tematu}\label{sec:wprowadzenie}
+\section{Wprowadzenie i motywacja}\label{sec:wprowadzenie}
 
-\section{Cel i zakres projektu}\label{sec:cel-zakres}
+Współczesne systemy operacyjne funkcjonują w środowiskach o zmiennym poziomie zaufania sieciowego, od odizolowanych segmentów korporacyjnych po otwarte bezprzewodowe sieci publiczne. Jednym z fundamentalnych mechanizmów obrony w głąb (\textit{defense-in-depth}) na poziomie stacji roboczej oraz serwera jest zapora ogniowa typu \textit{host-based} \cite{nist-sp800-41}. W systemach z rodziny Microsoft Windows rolę tę pełni Zapora systemu Windows Defender z zabezpieczeniami zaawansowanymi (\textit{Windows Defender Firewall with Advanced Security}), operująca bezpośrednio na stosie sieciowym jądra za pośrednictwem platformy filtrującej WFP (\textit{Windows Filtering Platform}) \cite{ms-defender-firewall, ms-wfp}.
 
-\subsection{Ochrona przed nieautoryzowanymi połączeniami sieciowymi}\label{subsec:ochrona-polaczenia}
+Skuteczność ochrony zapewnianej przez lokalną zaporę sieciową zależy bezpośrednio od spójności, przejrzystości oraz rozliczalności jej polityki filtracji. W praktyce administracyjnej utrzymanie właściwego zestawu reguł przychodzących (\textit{Inbound}) oraz wychodzących (\textit{Outbound}) wymaga nie tylko poprawnego definiowania parametrów warstwy sieciowej i transportowej, lecz także ciągłej kontroli nad tym, kiedy, w jakim kontekście sieciowym oraz przez kogo polityka bezpieczeństwa została zmodyfikowana.
 
-\subsection{Automatyzacja zarządzania regułami zapory}\label{subsec:automatyzacja-zarzadzania}
+\section{Sformułowanie problemu projektowego}\label{sec:problem-projektowy}
 
-\subsection{Dostosowanie zabezpieczeń do kontekstu sieciowego}\label{subsec:kontekst-sieciowy}
+Standardowym narzędziem administracyjnym dostarczanym wraz z systemem Windows jest graficzna przystawka konsoli MMC (\file{wf.msc}) oraz rozproszone aplety Panelu sterowania. W codziennej pracy administratora systemów oraz inżyniera bezpieczeństwa korzystanie wyłącznie z interfejsu graficznego ujawnia jednak istotne ograniczenia operacyjne i architektoniczne:
 
-\subsection{Audyt, rozliczalność zmian i ciągłość konfiguracji}\label{subsec:audyt-i-kopie}
+\begin{enumerate}
+    \item \textbf{Niska wydajność i powolność interfejsu GUI} - utworzenie pojedynczej reguły w przystawce \file{wf.msc} wymaga przejścia przez siedmioetapowy kreator okienkowy (typ reguły, protokół, porty, adresy IP, akcja, profile oraz nazwa), co przy wdrażaniu wielu reguł jest czasochłonne i niepoddające się automatyzacji.
+    \item \textbf{Brak izolacji reguł administratora} - domyślna instalacja systemu Windows zawiera kilkaset predefiniowanych reguł systemowych, co w oknie graficznym utrudnia szybkie wyodrębnienie reguł własnych, kontrolę ich priorytetów oraz utrzymanie spójnej konwencji nazewnictwa.
+    \item \textbf{Podatność na błędy ludzkie i brak automatycznych kopii bezpieczeństwa} - ręczna edycja w oknach dialogowych sprzyja pomyłkom (np.\ pomyleniu portu lokalnego ze zdalnym), a natywne GUI nie wymusza wykonania kopii zapasowej przed modyfikacją polityki.
+    \item \textbf{Brak kryptograficznie chronionej rozliczalności zmian} - standardowy dziennik zdarzeń zapory nie przechowuje pełnego bilansu różnicowego (\textit{before/after diff}) polityki i może zostać wyczyszczony przez administratora. Brakuje mechanizmu zapisu wyprzedzającego (\textit{write-ahead logging}), łańcucha skrótów SHA-256 oraz detekcji modyfikacji wykonanych poza narzędziem.
+\end{enumerate}
+
+Porównanie tradycyjnego podejścia opartego na interfejsie graficznym z zaproponowanym w projekcie zautomatyzowanym rozwiązaniem konsolowym zestawiono w tabeli~\ref{tab:gui-vs-cli}.
+
+\begin{table}[H]
+    \centering
+    \caption{Porównanie administracji zaporą w interfejsie graficznym (\file{wf.msc}) oraz w opracowanym systemie PowerShell}\label{tab:gui-vs-cli}
+    \tablefont
+    \begin{tabularx}{\linewidth}{L{3.6cm} Y Y}
+        \toprule
+        \hcell{Kryterium oceny} & \hcell{Standardowe GUI (\file{wf.msc})} & \hcell{Opracowane narzędzie PowerShell} \\
+        \midrule
+        Czas utworzenia reguły & Wysoki (7 osobnych ekranów kreatora okienkowego) & Niski (kilka sekund w terminalu dzięki sugerowanym wartościom domyślnym) \\
+        Izolacja reguł własnych & Brak (reguły wymieszane z kilkuset regułami systemu Windows) & Automatyczna numeracja i filtrowanie po prefiksie \code{OSO-} \\
+        Walidacja danych wejściowych & Rozproszona w poszczególnych oknach dialogowych & Natychmiastowa walidacja IPv4/IPv6, zakresu portów i protokołów \\
+        Kopia zapasowa przed zmianą & Brak (wymaga ręcznego eksportu pliku \file{.wfw}) & Wymuszana automatycznie na zdalny serwer przed dodaniem/usunięciem \\
+        Rozliczalność i audyt zmian & Rozproszone zdarzenia systemowe podatne na wyczyszczenie & Transakcyjny dziennik \file{audit.jsonl} z łańcuchem skrótów SHA-256 \\
+        Detekcja zmian zewnętrznych & Brak powiadomień o zmianach w rejestrze lub GPO & Zadanie \textit{Watcher} i porównywanie migawek rejestru z bazą \file{baseline.json} \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\section{Cele i zakres projektu}\label{sec:cel-zakres}
+
+Głównym celem projektu było zaprojektowanie, zaimplementowanie oraz zweryfikowanie zintegrowanego systemu zarządzania regułami Zapory systemu Windows w środowisku PowerShell 5.1, wspieranego przez zewnętrzny serwer kopii zapasowych w systemie Linux. Zakres funkcjonalny rozwiązania obejmuje cztery filary architektoniczne:
+
+\begin{enumerate}
+    \item \textbf{Ochrona przed nieautoryzowanymi połączeniami i automatyzacja reguł} - zastąpienie wieloetapowych okien graficznych interaktywnym kreatorem CLI, który automatyzuje tworzenie, przeglądanie i usuwanie reguł \textit{Inbound}/\textit{Outbound}, weryfikuje poprawność adresacji IPv4/IPv6 oraz zakresów portów (1-65535) i wymusza dobór protokołu warstwy transportowej (TCP/UDP).
+    \item \textbf{Dostosowanie zabezpieczeń do kontekstu sieciowego} - powiązanie reguł filtracji z profilem lokalizacji sieciowej rozpoznawanym przez usługę NLA (\textit{Domain}, \textit{Private}, \textit{Public}), umożliwiające natychmiastową identyfikację aktywnej kategorii interfejsów oraz selektywne przypisywanie reguł do pojedynczych lub wielu profili.
+    \item \textbf{Audyt, rozliczalność zmian i odporność na manipulacje} - transakcyjne rejestrowanie modyfikacji polityki w protokole zapisu wyprzedzającego (\textit{Write-Ahead Logging}) zgodnie z wytycznymi NIST SP 800-92 \cite{nist-sp800-92}, ciągłe wykrywanie zmian zewnętrznych (GUI, \cmd{netsh}, GPO) przez zadanie systemowe \textit{Watcher} wraz z identyfikacją sprawcy z dziennika zdarzeń oraz ochrona wpisów łańcuchem skrótów SHA-256.
+    \item \textbf{Ciągłość konfiguracji i zdalne kopie zapasowe} - architektura klient-serwer z dedykowanym serwerem Ubuntu pobierającym kopie polityki (\file{.wfw}) w modelu \textit{pull} po protokole SSH przed każdą modyfikacją reguł oraz dwufazowym odtwarzaniem przez kanał SFTP wyłącznie do odczytu z weryfikacją sumy kontrolnej SHA-256.
+\end{enumerate}
+
+Przyjęty model zagrożeń (\textit{threat model}) zakłada ochronę przed trzema wektorami ryzyka: (1) niezamierzonymi błędami operatorskimi i rozbieżnościami reguł, (2) manipulacjami i atakami wstrzykiwania kodu ze strony lokalnych kont nieuprzywilejowanych (odcięcie uprawnień DACL) oraz (3) próbami zatarcia śladów lub skasowania kopii bezpieczeństwa w przypadku przejęcia stacji roboczej (dzięki odseparowanemu serwerowi Linux, modelowi pobierania \textit{pull} oraz możliwości utrwalania nagłówka skrótów poza systemem klienckim).
 
 \section{Wymagania funkcjonalne i niefunkcjonalne}\label{sec:wymagania}
 
+Na podstawie sformułowanego problemu projektowego zdefiniowano zestaw wymagań funkcjonalnych (\code{WF}) oraz niefunkcjonalnych (\code{WNF}), które musi spełniać opracowany system. Zestawienie wymagań przedstawiono w tabeli~\ref{tab:wymagania}.
+
+\begin{table}[H]
+    \centering
+    \caption{Specyfikacja wymagań funkcjonalnych i niefunkcjonalnych systemu}\label{tab:wymagania}
+    \tablefont
+    \begin{tabularx}{\linewidth}{C{1.6cm} Y C{2.2cm}}
+        \toprule
+        \hcell{ID} & \hcell{Opis wymagania} & \hcell{Moduł} \\
+        \midrule
+        \code{WF-01} & Interaktywne dodawanie reguł \textit{Block}/\textit{Allow} (\textit{Inbound}/\textit{Outbound}) dla wybranych adresów IP, portów i protokołów (TCP, UDP, Any). & Moduł 1 \\
+        \code{WF-02} & Automatyczne nadawanie regułom identyfikatorów \code{<NR>-OSO-<Action>-<Direction>-<HHmmss>} oraz ich podgląd i usuwanie po indeksie. & Moduł 1 \\
+        \code{WF-03} & Detekcja aktywnego profilu połączenia NLA oraz przypisywanie reguł do jednego lub wielu profili (\textit{Domain}, \textit{Private}, \textit{Public}, \textit{Any}). & Moduł 2 \\
+        \code{WF-04} & Rejestrowanie każdej zmiany polityki zapory (reguły lokalne, IPsec, profile oraz obiekty GPO) w formacie JSONL ze stanem przed i po zmianie. & Moduł 3 \\
+        \code{WF-05} & Wykrywanie zmian zewnętrznych przy starcie, na żądanie oraz w tle przez zadanie \textit{Watcher} wraz z identyfikacją sprawcy z dziennika zdarzeń. & Moduł 3 \\
+        \code{WF-06} & Weryfikacja integralności dziennika audytu na podstawie łańcucha skrótów SHA-256, ciągłości numeracji \code{seq} oraz zewnętrznego \textit{head hash}. & Moduł 3 \\
+        \code{WF-07} & Automatyczne i ręczne tworzenie kopii zapasowych polityki (\file{.wfw}) na serwerze Linux przed dodaniem/usunięciem reguły oraz przed odtwarzaniem. & Moduł 4 \\
+        \code{WF-08} & Inwentaryzacja kopii na serwerze oraz przywracanie wybranej polityki z weryfikacją SHA-256 i rejestracją operacji w dzienniku audytu. & Moduł 4 \\
+        \midrule
+        \code{WNF-01} & Domyślna polityka awarii \textit{fail-closed}: blokada modyfikacji zapory w przypadku niedostępności dziennika audytu (z kontrolowanym trybem \textit{fail-open}). & Moduł 3 \\
+        \code{WNF-02} & Ochrona katalogów (\file{C:\FW}, \file{C:\ProgramData\FirewallAudit}) listami ACL dopuszczającymi zapis wyłącznie dla kont \code{SYSTEM} i \code{Administratorzy}. & Moduły 3, 4 \\
+        \code{WNF-03} & Brak uprawnień zapisu i usuwania kopii po stronie klienta Windows (konto SFTP tylko do odczytu; eksport inicjowany wyłącznie przez serwer). & Moduł 4 \\
+        \code{WNF-04} & Pełne porównanie migawki polityki (~500 reguł) w czasie poniżej 1-2~s dzięki bezpośredniemu odczytowi rejestru i współdzieleniu wpisów bazy. & Moduł 3 \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
 \section{Organizacja pracy i podział zadań w zespole}\label{sec:podzial-zadan}
 
-\section{Układ dokumentu}\label{sec:uklad-dokumentu}
+Prace projektowe zostały zrealizowane w czteroosobowym zespole z wykorzystaniem systemu kontroli wersji Git (repozytorium kodu źródłowego \cite{ms-netsecurity-module} dostępne pod adresem \url{https://github.com/ruslanhedz/Firewall_in_powershell}). Architektura systemu została podzielona na cztery moduły funkcjonalne odpowiadające obszarom odpowiedzialności poszczególnych autorów (tabela~\ref{tab:podzial-zadan}), zintegrowane wokół wspólnego kontraktu wykonania zmian (\code{Invoke-AuditedChange}).
+
+\begin{table}[H]
+    \centering
+    \caption{Podział modułów i zakresu prac w zespole projektowym}\label{tab:podzial-zadan}
+    \tablefont
+    \begin{tabularx}{\linewidth}{C{2.0cm} L{3.6cm} Y}
+        \toprule
+        \hcell{Moduł} & \hcell{Autor} & \hcell{Zakres odpowiedzialności i zrealizowane komponenty} \\
+        \midrule
+        Moduł 1 & Adam Rola & Interaktywny kreator CLI dla reguł \textit{Inbound}/\textit{Outbound}, walidacja adresacji IPv4/IPv6 oraz portów, sekwencyjne nazewnictwo reguł z prefiksem \code{OSO}, tabela przeglądania, sortowania i usuwania reguł. \\
+        Moduł 2 & Aliaksei Lapachuk & Integracja z podsystemem profili sieciowych (\textit{Domain}, \textit{Private}, \textit{Public}), detekcja aktywnych kategorii interfejsów sieciowych (NLA), selektor wieloprofilowy oraz dobór protokołów transportowych. \\
+        Moduł 3 & Aleh Shehda & Silnik audytu transakcyjnego (\textit{Write-Ahead Logging}), parsowanie rejestru i obiektów GPO, łańcuch skrótów SHA-256 i rotacja logów, usługa \textit{Watcher} w harmonogramie zadań, atrybucja sprawców z dziennika zdarzeń, polityka \textit{fail-closed}/\textit{fail-open} oraz testy jednostkowe i akceptacyjne. \\
+        Moduł 4 & Ruslan Hedz & Podsystem zdalnych kopii zapasowych klient-serwer: agent eksportu po stronie Windows, skrypty klienta (\file{Backup-Create.ps1}, \file{Backup-Restore.ps1}), skrypt serwera Ubuntu (\file{fw-server.sh}), integracja z SFTPGo, automatyczne kopie przed zmianą i odtwarzanie z weryfikacją SHA-256. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Dokumentacja składa się z pięciu rozdziałów. W rozdziale~\ref{ch:podstawy-technologiczne} omówiono podstawy teoretyczne i technologiczne bezpośrednio wykorzystywane w projekcie (architekturę WFP i magazyn rejestru, usługę NLA, interfejsy PowerShell oraz kryptograficzne łańcuchy skrótów). Rozdział~\ref{ch:architektura-i-dzialanie} przedstawia architekturę rozwiązania, zasadę działania wszystkich czterech modułów oraz formalne algorytmy w pseudokodzie. W rozdziale~\ref{ch:testy} scharakteryzowano środowisko uruchomieniowe oraz wyniki weryfikacji praktycznej i testów automatycznych, natomiast rozdział~\ref{ch:podsumowanie} zawiera podsumowanie projektu, analizę ograniczeń modelu bezpieczeństwa i wnioski końcowe.

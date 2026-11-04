@@ -8,7 +8,7 @@
 % Dane dokumentu (widoczne na stronie tytułowej)
 % ---------------------------------------------------------------------------------------------
 \newcommand{\DocType}{Dokumentacja Projektowa}                       % np. Raport, Sprawozdanie, Projekt
-\newcommand{\DocTitle}{Firewall w PowerShell - zarządzanie regułami zapory}             % tytuł (może być długi, zawija się)
+\newcommand{\DocTitle}{PSFirewallManager. Firewall w PowerShell - zarządzanie regułami zapory.}             % tytuł (może być długi, zawija się)
 
 \newcommand{\Course}{Cyberbezpieczeństwo}        % kierunek studiów
 \newcommand{\Subject}{Ochrona Systemów Operacyjnych}             % przedmiot - pojawia się też w stopce każdej strony
@@ -45,8 +45,8 @@
 \newif\ifshowbibliography     \showbibliographytrue       % Bibliografia (BibTeX, bib/references.bib)
 \newif\ifshowlistoffigures    \showlistoffigurestrue      % Spis rysunków
 \newif\ifshowlistoftables     \showlistoftablestrue       % Spis tabel
-\newif\ifshowlistoflistings   \showlistoflistingstrue     % Spis listingów
-\newif\ifshowlistofalgorithms \showlistofalgorithmsfalse  % Spis algorytmów
+\newif\ifshowlistoflistings   \showlistoflistingsfalse    % Spis listingów
+\newif\ifshowlistofalgorithms \showlistofalgorithmstrue   % Spis algorytmów
 \newif\ifshowappendices       \showappendicesfalse        % Załączniki
 
 % Wersja do druku: wyłącza kolorowe odnośniki w PDF (\printversiontrue)
@@ -54,4 +54,4 @@
 
 % Domyślne umiejscowienie rysunków wstawianych makrem \Figure
 % (H = dokładnie w miejscu wywołania; htbp = pozwól LaTeX-owi przesuwać)
-\newcommand{\DefaultFigurePlacement}{H}
+\newcommand{\DefaultFigurePlacement}{htbp}

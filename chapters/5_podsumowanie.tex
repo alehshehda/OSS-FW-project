@@ -1,0 +1,28 @@
+\chapter{Podsumowanie i wnioski}\label{ch:podsumowanie}
+
+\section{Podsumowanie zrealizowanych prac i celów projektu}\label{sec:podsumowanie-prac}
+
+W ramach niniejszego projektu zaprojektowano, zaimplementowano oraz przetestowano kompletne rozwiązanie umożliwiające zautomatyzowane i bezpieczne zarządzanie regułami Zapory systemu Windows Defender w środowisku PowerShell 5.1. Opracowany system bezpośrednio rozwiązuje problemy zidentyfikowane podczas analizy standardowego interfejsu graficznego \file{wf.msc}:
+
+\begin{enumerate}
+    \item \textbf{Zastąpienie powolnego kreatora GUI zwalidowanym interfejsem CLI (Moduł~1)} - wieloetapowe okna dialogowe zastąpiono kreatorem konsolowym z natychmiastową kontrolą adresacji IPv4/IPv6, portów ($1\text{-}65535$) i protokołów oraz automatycznym kierunkowym mapowaniem portów (\code{LocalPort} dla \textit{Inbound}, \code{RemotePort} dla \textit{Outbound}). Konwencja \code{<NR>-OSO-<Action>-<Direction>-<HHmmss>} wyeliminowała problem przemieszania reguł własnych z setkami reguł systemowych.
+    \item \textbf{Świadome zarządzanie kontekstem sieciowym (Moduł~2)} - zintegrowano podgląd reguł z diagnostyką usługi NLA, udostępniając informację o aktywnych kategoriach interfejsów sieciowych oraz elastyczny wybór profili (\textit{Domain}, \textit{Private}, \textit{Public}, \textit{Any}).
+    \item \textbf{Transakcyjny audyt odporny na manipulacje (Moduł~3)} - zrealizowano silnik audytowy oparty na bezpośrednich migawkach rejestru i GPO w protokole zapisu wyprzedzającego (\code{intent} $\rightarrow$ \code{change} $\rightarrow$ \code{result}) z domyślną polityką \textit{fail-closed}, ochroną łańcuchem skrótów SHA-256 oraz zadaniem \textit{Watcher} wykrywającym i przypisującym zmiany zewnętrzne.
+    \item \textbf{Ciągłość konfiguracji na zewnętrznym serwerze kopii (Moduł~4)} - wdrożono architekturę zdalnych kopii zapasowych z serwerem Ubuntu i usługą SFTPGo, pobierającą kopie \file{.wfw} w modelu \textit{pull} przed każdą zmianą reguł oraz weryfikującą skróty SHA-256 i kopię ratunkową \code{pre-restore} podczas odtwarzania.
+\end{enumerate}
+
+\section{Świadome ograniczenia rozwiązania i kierunki dalszego rozwoju}\label{sec:dalsze-prace}
+
+Rzetelna ocena każdego systemu bezpieczeństwa wymaga jawnego określenia granic przyjętego modelu zagrożeń (\textit{threat model}). Ponieważ narzędzie działa na stacji roboczej kontrolowanej przez lokalnego administratora, zidentyfikowano następujące świadome ograniczenia architektoniczne oraz odpowiadające im mechanizmy kompensujące:
+
+\begin{itemize}
+    \item \textbf{Brak klucza tajnego w łańcuchu skrótów (SHA-256 bez HMAC)} - skrót każdego rekordu w \file{audit.jsonl} obliczany jest bezkluczową funkcją SHA-256, przez co lokalny administrator mógłby zmodyfikować historyczny wpis i przeliczyć kolejne skróty lub obciąć koniec pliku (\textit{truncation}). Mechanizmem kompensującym jest eksport bieżącego nagłówka łańcucha (\textit{head hash}: \code{<seq>:<sha256>}, opcja menu \code{8} $\rightarrow$ \code{[H]}), którego zewnętrzne przechowanie i podanie podczas weryfikacji (opcja \code{6}) wykrywa zarówno obcięcie, jak i przepisanie dziennika.
+    \item \textbf{Możliwość zatrzymania zadania \textit{Watcher} lub wyczyszczenia dziennika zdarzeń} - lokalny administrator może wyłączyć zadanie \code{\FirewallAudit\Watcher} lub wyczyścić kanał zdarzeń zapory. Działanie to jest jednak jawnie sygnalizowane: wyczyszczenie zdarzeń oznacza kolejne zmiany zewnętrzne jako pozbawione atrybucji (\code{unattributed}), a zatrzymanie zadania przełącza status w menu głównym w stan alarmowy \code{Stale} po 45~minutach.
+    \item \textbf{Zależność od dostępności serwera kopii zapasowych} - domyślny przepływ wstrzymuje utworzenie lub usunięcie reguły w przypadku nieosiągalności serwera Ubuntu, chroniąc przed cichym rozbiegnięciem się stanu stacji z archiwum kopii. W sytuacjach awaryjnych administrator może świadomie pominąć wykonanie kopii zdalnej poprzez potwierdzenie monitu, zachowując pełną ciągłość pracy oraz lokalny zapis transakcyjny w dzienniku \file{audit.jsonl}.
+\end{itemize}
+
+Kierunki dalszego rozwoju systemu obejmują: (1) automatyczne przesyłanie każdego nowego nagłówka \textit{head hash} na serwer Ubuntu podczas wykonywania kopii zapasowej, (2) podpisanie skryptów certyfikatem Authenticode przy wymuszeniu polityki \code{AllSigned} oraz (3) rozszerzenie kreatora reguł o filtry ścieżek aplikacji (\code{-Program}) i nazw usług (\code{-Service}).
+
+\section{Wnioski końcowe}\label{sec:wnioski}
+
+Przeprowadzone prace projektowe i testy weryfikacyjne potwierdziły, że połączenie mechanizmów PowerShell oraz .NET z bezpośrednią analizą rejestru i zewnętrznym serwerem kopii zapasowych pozwala stworzyć narzędzie przewyższające standardowy interfejs graficzny szybkością działania i rygorem bezpieczeństwa. Architektura modułowa ze wspólnym kontraktem audytowym (\code{Invoke-AuditedChange}) oraz pobieraniem kopii w modelu \textit{pull} skutecznie chroni spójność i rozliczalność polityki zapory ogniowej.

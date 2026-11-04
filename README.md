@@ -32,11 +32,10 @@ frontmatter/
   abbreviations.tex                   list of abbreviations and acronyms
 chapters/
   1_wstep.tex                         Introduction and project assumptions
-  2_podstawy_technologiczne.tex       Windows Firewall architecture and PowerShell environment
-  3_projekt_rozwiazania.tex           System architecture and solution design
-  4_implementacja.tex                 Implementation of functional modules
-  5_testy_i_weryfikacja.tex           Testing and verification of operation
-  6_podsumowanie.tex                  Summary and conclusions
+  2_podstawy_technologiczne.tex       Windows Firewall architecture and technological foundations
+  3_architektura_i_dzialanie.tex      System architecture and functional modules
+  4_srodowisko_i_weryfikacja.tex      Runtime environment and verification of operation
+  5_podsumowanie.tex                  Summary and conclusions
 bib/
   references.bib                      BibTeX bibliography database
   plabbrv-fixed.bst                   Polish bibliography style
