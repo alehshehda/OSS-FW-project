@@ -1,11 +1,11 @@
-# Firewall in PowerShell - Firewall Rules Management
+# PSFirewallManager - Firewall in PowerShell
 
-[![View PDF](https://img.shields.io/badge/View-PDF-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://alehshehda.github.io/SOS-FW-project/SOS-FW-project.pdf)
-[![Download PDF](https://img.shields.io/badge/Download-PDF-success?style=for-the-badge&logo=github&logoColor=white)](https://github.com/alehshehda/SOS-FW-project/releases/download/latest/SOS-FW-project.pdf)
+[![View PDF](https://img.shields.io/badge/View-PDF-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://alehshehda.github.io/OSS-FW-project/OSS-FW-project.pdf)
+[![Download PDF](https://img.shields.io/badge/Download-PDF-success?style=for-the-badge&logo=github&logoColor=white)](https://github.com/alehshehda/OSS-FW-project/releases/download/latest/OSS-FW-project.pdf)
 
 Project documentation for the **Operating Systems Security** course (*Ochrona Systemów Operacyjnych*) at Wrocław University of Science and Technology, Faculty of Information and Communication Technology (Cybersecurity).
 
-**Source Code Repository:** [ruslanhedz/Firewall_in_powershell](https://github.com/ruslanhedz/Firewall_in_powershell)
+**Source Code Repository:** [ruslanhedz/PSFirewallManager](https://github.com/ruslanhedz/PSFirewallManager)
 
 ## Authors
 
@@ -45,4 +45,4 @@ logos/                                university logos
 
 ## Build
 
-The document is automatically compiled to `SOS-FW-project.pdf` and published to GitHub Releases and GitHub Pages via the GitHub Actions CI/CD workflow (`.github/workflows/compile.yml`) on every push to `main`.
+The document is automatically compiled to `OSS-FW-project.pdf` and published to GitHub Releases and GitHub Pages via the GitHub Actions CI/CD workflow (`.github/workflows/compile.yml`) on every push to `main`.

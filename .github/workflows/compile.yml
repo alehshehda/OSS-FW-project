@@ -23,7 +23,7 @@ jobs:
           root_file: main.tex
 
       - name: Rename compiled PDF
-        run: mv main.pdf SOS-FW-project.pdf
+        run: mv main.pdf OSS-FW-project.pdf
 
       - name: Move latest tag to current commit
         run: |
@@ -37,22 +37,22 @@ jobs:
           name: Latest Compiled PDF
           draft: false
           prerelease: false
-          files: SOS-FW-project.pdf
+          files: OSS-FW-project.pdf
 
       - name: Prepare GitHub Pages site
         run: |
           mkdir -p _site
-          cp SOS-FW-project.pdf _site/
+          cp OSS-FW-project.pdf _site/
           cat << 'EOF' > _site/index.html
           <!DOCTYPE html>
           <html lang="pl">
           <head>
             <meta charset="utf-8">
-            <meta http-equiv="refresh" content="0; url=SOS-FW-project.pdf">
-            <title>SOS-FW Project - PDF</title>
+            <meta http-equiv="refresh" content="0; url=OSS-FW-project.pdf">
+            <title>OSS-FW Project - PDF</title>
           </head>
           <body>
-            <p>Redirecting to <a href="SOS-FW-project.pdf">SOS-FW-project.pdf</a>...</p>
+            <p>Redirecting to <a href="OSS-FW-project.pdf">OSS-FW-project.pdf</a>...</p>
           </body>
           </html>
           EOF
