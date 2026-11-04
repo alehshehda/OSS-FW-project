@@ -16,8 +16,8 @@ System został wdrożony i przetestowany w dwuwęzłowej architekturze sieciowej
         \toprule
         \hcell{Parametr} & \hcell{Stacja robocza (Klient)} & \hcell{Serwer kopii zapasowych} \\
         \midrule
-        System operacyjny & Microsoft Windows 10/11 Pro (\code{DESKTOP-M67HB24}) & Ubuntu Linux LTS \\
-        Adresacja IP (LAN) & \code{10.0.2.20} (interfejs \code{Ethernet}, profil \code{Private}) & \code{10.0.2.30} \\
+        System operacyjny & Microsoft Windows 10 Pro & Ubuntu Linux 26.10 LTS \\
+        Adresacja IP (LAN) & \code{10.0.2.20} & \code{10.0.2.30} \\
         Środowisko skryptowe & Windows PowerShell 5.1 (\textit{Desktop Edition}), .NET 4.8 & Powłoka systemowa \cmd{bash}, narzędzia \cmd{flock}, \cmd{sha256sum}, \cmd{base64} \\
         Usługi komunikacyjne & OpenSSH Client + OpenSSH Server (\code{sshd} na porcie TCP 22) & OpenSSH Server (port TCP 22) + SFTPGo (port TCP 2022) \\
         Konta operacyjne & Konto administratora \code{Student} + konto \code{SYSTEM} (\textit{Watcher}) & Konto systemowe \code{fwbackup} + konto usługi \code{sftpgo} \\
@@ -26,7 +26,7 @@ System został wdrożony i przetestowany w dwuwęzłowej architekturze sieciowej
     \end{tabularx}
 \end{table}
 
-W celu zapewnienia odporności wdrożenia na lokalną eskalację uprawnień oraz nieautoryzowany dostęp sieciowy zastosowano następujące środki twardej konfiguracji (\textit{hardening}):
+W celu zapewnienia odporności wdrożenia na lokalną eskalację uprawnień oraz nieautoryzowany dostęp sieciowy zastosowano następujące środki utwardzania konfiguracji:
 \begin{enumerate}
     \item \textbf{Ochrona katalogów skryptów i dzienników na stacji Windows} - katalogi \file{C:\FW} oraz \file{C:\ProgramData\FirewallAudit} posiadają wyłączone dziedziczenie uprawnień DACL (\cmd{icacls.exe /inheritance:r}) i przyznają prawa zapisu wyłącznie kontom \code{SYSTEM} (\code{S-1-5-18}) oraz \code{Administratorzy} (\code{S-1-5-32-544}). Przed załadowaniem modułów \file{Backup-Create.ps1} i \file{Backup-Restore.ps1} skrypt główny weryfikuje listę ACL i odmawia uruchomienia w przypadku wykrycia praw zapisu dla nieuprzywilejowanych kont.
     \item \textbf{Restrykcje usługi OpenSSH na stacji Windows} - w pliku konfiguracyjnym \file{sshd_config} ograniczono dostęp dyrektywami \code{AllowUsers student@10.0.2.30} oraz \code{PasswordAuthentication no}, a reguła zapory \code{FWBackup-SSH-In} zezwala na ruch przychodzący na port TCP~22 wyłącznie ze wskazanego adresu IP serwera kopii (\code{10.0.2.30}).
