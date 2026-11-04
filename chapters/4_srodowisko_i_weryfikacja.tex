@@ -41,15 +41,15 @@ Strategię weryfikacji poprawności działania systemu podzielono na trzy uzupe�
 
 W repozytorium kodu wdrożono zautomatyzowany potok CI/CD oparty na GitHub Actions (\file{.github/workflows/ci.yml}), który przy każdym commicie oraz żądaniu pull request uruchamia dwa równoległe zadania weryfikacyjne:
 \begin{itemize}
-    \item \textbf{Środowisko Windows (\code{windows-latest})} - weryfikuje poprawność składniową kodu PowerShell za pomocą lintera \code{PSScriptAnalyzer} (z rygorystycznym filtrem \code{-Severity Error}), po czym uruchamia testy jednostkowe modułu audytu, interfejsu CLI oraz modułu kopii zapasowych.
-    \item \textbf{Środowisko Linux (\code{ubuntu-latest})} - wykonuje analizę statyczną skryptu powłoki serwera \file{fw-server.sh} narzędziem \cmd{shellcheck} (weryfikacja błędów składniowych i podatności w skryptach powłoki), a następnie uruchamia zestaw testów jednostkowych serwera w środowisku \cmd{bash}.
+    \item \textbf{Środowisko Windows (\code{windows-latest})} - weryfikuje poprawność składniową kodu PowerShell za pomocą lintera \code{PSScriptAnalyzer} (z filtrem \code{-Severity Error}), po czym uruchamia testy jednostkowe modułu audytu, interfejsu CLI oraz modułu kopii zapasowych.
+    \item \textbf{Środowisko Linux (\code{ubuntu-latest})} - wykonuje analizę statyczną skryptu powłoki serwera \file{fw-server.sh} narzędziem \cmd{shellcheck}, a następnie uruchamia zestaw testów jednostkowych serwera w środowisku \cmd{bash}.
 \end{itemize}
 
-Dzięki takiemu podejściu wszelkie regresje składniowe lub naruszenia kontraktów API są natychmiast wychwytywane przed scaleniem zmian.
+Dzięki takiemu podejściu wszelkie regresje składniowe lub naruszenia kontraktów API są natychmiast wychwytywane.
 
 \subsection{Izolowane testy jednostkowe w piaskownicy (\file{tests/})}\label{subsec:testy-jednostkowe}
 
-Aby umożliwić szybką weryfikację logiki aplikacji na stacjach deweloperskich oraz w kontenerach CI/CD bez konieczności podnoszenia uprawnień do poziomu administratora i bez ingerencji w rzeczywiste reguły sieciowe jądra, opracowano zestaw testów jednostkowych działających w bezpiecznej piaskownicy (\textit{sandbox}):
+Aby umożliwić szybką weryfikację logiki aplikacji na stacjach deweloperskich oraz w kontenerach CI/CD bez konieczności podnoszenia uprawnień do poziomu administratora i bez ingerencji w rzeczywiste reguły sieciowe jądra, opracowano zestaw testów jednostkowych działających w sandbox:
 \begin{enumerate}
     \item \textbf{Audyt transakcyjny i kontrakt AST (\file{Test-FirewallAudit.ps1})} - przekierowuje operacje rejestru do gałęzi \code{HKCU\Software\FwAuditTest-<GUID>}, wykorzystuje lokalny muteks oraz tymczasowy katalog w \file{\%TEMP\%}. Sprawdza integralność łańcucha skrótów SHA-256, procedurę rotacji przy 10~MB oraz politykę \textit{fail-closed}/\textit{fail-open}. Ponadto za pomocą analizatora AST (\code{Language.Parser}) bada cały plik \file{firewall.ps1}, weryfikując, czy wszystkie modyfikacje zapory (cmdlety \cmd{*-NetFirewallRule} i program \cmd{netsh advfirewall}) są hermetycznie opakowane w wywołanie \code{Invoke-AuditedChange}.
     \item \textbf{Interfejs CLI i walidacja danych (\file{Test-CliHelpers.ps1})} - wyodrębnia za pomocą AST funkcje pomocnicze (\code{Read-ProfileChoice}, \code{Read-ProtocolChoice}, \code{Get-AuditPolicyStatusLine}) i testuje je z wykorzystaniem deterministycznej kolejki wejściowej mockującej polecenie \cmd{Read-Host}. Weryfikuje odrzucanie niepoprawnych adresów IPv4/IPv6, masek CIDR i portów spoza zakresu $1\text{-}65535$, automatyczne kierunkowe przypisanie portów oraz format generowanych nazw reguł z prefiksem \code{OSO-}.
@@ -64,7 +64,7 @@ Weryfikację elementów wymagających rzeczywistych uprawnień administratora or
     \item weryfikuje ochronę ACL katalogu audytu (brak praw modyfikacji dla grup \code{Users}, \code{Everyone} oraz \code{Authenticated Users}),
     \item instaluje zadanie \code{\FirewallAudit\Watcher} i potwierdza konfigurację 3 wyzwalaczy (zdarzeniowy, startowy, okresowy co 15~min) oraz zgodność skrótu SHA-256 skryptu w katalogu \file{bin},
     \item tworzy i usuwa testową regułę \code{FWAUDIT-ACCEPT-<id>-external} bezpośrednim wywołaniem cmdletu \cmd{New-NetFirewallRule} (poza narzędziem), po czym potwierdza przechwycenie zdarzenia przez zadanie \textit{Watcher} oraz poprawną atrybucję sprawcy z dziennika zdarzeń zapory,
-    \item symuluje awarię dziennika poprzez zablokowanie pliku \file{audit.jsonl} wyłącznym uchwytem \code{FileShare.None}, weryfikując zablokowanie zmiany w trybie \code{Closed} oraz prawidłowe odłożenie znacznika i późniejsze uzgodnienie (\textit{reconcile}) w trybie \code{Open},
+    \item symuluje awarię dziennika poprzez zablokowanie pliku \file{audit.jsonl} wyłącznym uchwytem \code{FileShare.None}, weryfikując zablokowanie zmiany w trybie \code{Closed} oraz prawidłowe odłożenie znacznika i późniejsze uzgodnienie w trybie \code{Open},
     \item sprawdza ciągłość łańcucha skrótów SHA-256 i usuwa reguły testowe.
 \end{enumerate}
 
@@ -80,10 +80,10 @@ Zbiorcze zestawienie zrealizowanych scenariuszy weryfikacyjnych przedstawiono w 
         \midrule
         \code{T-01} & Walidacja i numeracja (Moduł 1, \code{WF-01}, \code{WF-02}) & Odrzucanie błędnych adresów IP (ciągi znaków, pojedyncze liczby, oktety $>255$) oraz portów spoza zakresu $1\text{-}65535$; poprawne nadanie numerów \code{05-OSO-*} i \code{06-OSO-*} oraz usuwanie po indeksie. & \cmark \\
         \code{T-02} & Semantyka portów (Moduł 1, \code{WF-01}) & Wymuszenie protokołu TCP/UDP po podaniu portu oraz automatyczne przypisanie \code{LocalPort} dla \textit{Inbound} i \code{RemotePort} dla \textit{Outbound}. & \cmark \\
-        \code{T-03} & Profile sieciowe NLA (Moduł 2, \code{WF-03}) & Odczyt aktywnej kategorii interfejsu (\code{Private} na karcie \code{Ethernet}), przypisanie reguł do wybranych profili (\code{Public}, \code{Any}) i ich selektywne egzekwowanie. & \cmark \\
+        \code{T-03} & Profile sieciowe NLA (Moduł 2, \code{WF-03}) & Odczyt aktywnej kategorii interfejsu, przypisanie reguł do wybranych profili (\code{Public}, \code{Any}) i ich selektywne egzekwowanie. & \cmark \\
         \code{T-04} & Kontrakt AST i WAL (Moduł 3, \code{WF-04}, \code{WNF-04}) & Analiza statyczna AST pliku \file{firewall.ps1} (brak niezaudytowanych wywołań), trójfazowy zapis \code{intent} $\rightarrow$ \code{change} $\rightarrow$ \code{result}, detekcja \code{scope-escape} i czas migawki $<1$~s. & \cmark \\
         \code{T-05} & Łańcuch skrótów SHA-256 (Moduł 3, \code{WF-06}) & Weryfikacja spójności 77 rekordów w \file{audit.jsonl} oraz wykrycie modyfikacji treści, usunięcia wiersza, obcięcia końca pliku (\textit{head hash}) i podmiany \file{baseline.json}. & \cmark \\
-        \code{T-06} & Zadanie \textit{Watcher} (Moduł 3, \code{WF-05}, \code{WNF-02}) & Utworzenie i usunięcie reguły poza narzędziem; przechwycenie zmiany przez zadanie \code{SYSTEM}, atrybucja sprawcy (\code{DESKTOP-M67HB24\Student}) i weryfikacja uprawnień ACL. & \cmark \\
+        \code{T-06} & Zadanie \textit{Watcher} (Moduł 3, \code{WF-05}, \code{WNF-02}) & Utworzenie i usunięcie reguły poza narzędziem; przechwycenie zmiany przez zadanie \code{SYSTEM}, atrybucja sprawcy i weryfikacja uprawnień ACL. & \cmark \\
         \code{T-07} & Polityka awarii (Moduł 3, \code{WNF-01}) & Zablokowanie pliku \file{audit.jsonl}: odmowa zmiany w trybie \code{Closed}, wykrycie ręcznej edycji \file{settings.json} oraz uzgodnienie \file{pending.jsonl} w trybie \code{Open}. & \cmark \\
         \code{T-08} & Eksport \textit{pull} (Moduł 4, \code{WF-07}, \code{WNF-03}) & Automatyczne utworzenie kopii na serwerze \code{10.0.2.30} przed dodaniem (\code{auto-add}) i usunięciem reguły (\code{auto-delete}); weryfikacja sumy SHA-256 i grup SFTPGo. & \cmark \\
         \code{T-09} & Odtwarzanie polityki (Moduł 4, \code{WF-08}, \code{WNF-03}) & Przywrócenie kopii \file{.wfw} przez SFTPGo: utworzenie kopii ratunkowej \code{pre-restore}, weryfikacja SHA-256 przed importem i rejestracja \code{Restore} w audycie. & \cmark \\
