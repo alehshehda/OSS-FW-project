@@ -4,7 +4,7 @@
 [![Download PDF](https://img.shields.io/badge/Download-PDF-success?style=for-the-badge&logo=github&logoColor=white)](https://github.com/alehshehda/OSS-FW-project/releases/download/latest/OSS-FW-project.pdf)
 [![Source Code](https://img.shields.io/badge/Code-PSFirewallManager-informational?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ruslanhedz/PSFirewallManager)
 
-Comprehensive technical documentation for **PSFirewallManager** - an enterprise-grade PowerShell tool for Microsoft Windows Defender Firewall management, built with transactional write-ahead logging (WAL), tamper-evident SHA-256 audit trails, NLA profile binding, and remote Linux pull-model backups.
+Comprehensive technical documentation for **PSFirewallManager** - a PowerShell tool for Microsoft Windows Defender Firewall management, built with transactional write-ahead logging (WAL), tamper-evident SHA-256 audit trails, NLA profile binding, and remote Linux pull-model backups.
 
 ---
 
@@ -28,26 +28,26 @@ Project developed for the **Operating Systems Security** (*Ochrona Systemów Ope
 | **Adam Rola** | 272194 | Module 1: Interactive CLI Wizard, IPv4/IPv6 & Port Validation, Rule Indexing |
 | **Ruslan Hedz** | 272212 | Module 4: Client-Server Backup Engine, SSH Pull Agent, SFTPGo Integration |
 
-**Project Supervisor:** mgr inż. Adrian Wojciech Florek
+**Project Supervisor:** mgr inż. Adrian Florek
 
 ---
 
 ## Repository Structure
 
 ```text
-├── main.tex                         # Master LaTeX document
-├── .github/workflows/compile.yml    # Automated PDF compilation & GitHub Pages release
-├── config/                          # Metadata, title, theme, and optional section toggles
-├── preamble/                        # Typography, macros, tables, listings, and styling
-├── frontmatter/                     # Title page and abbreviations table
+├── main.tex                            # Master LaTeX document
+├── .github/workflows/compile.yml       # Automated PDF compilation & GitHub Pages release
+├── config/                             # Metadata, title, theme, and optional section toggles
+├── preamble/                           # Typography, macros, tables, listings, and styling
+├── frontmatter/                        # Title page and abbreviations table
 ├── chapters/
-│   ├── 1_wstep.tex                  # Introduction, motivation, and problem statement
-│   ├── 2_podstawy_technologiczne.tex# WFP architecture, MpsSvc, registry, NLA, and event logs
-│   ├── 3_architektura_i_dzialanie.tex # Functional modules, WAL audit engine, and backup flows
-│   ├── 4_srodowisko_i_weryfikacja.tex# Topology, CI/CD pipeline, unit tests, and acceptance
-│   └── 5_podsumowanie.tex           # Security limitations, compensations, and conclusions
-├── bib/                             # BibTeX references (references.bib) and Polish bst style
-└── images/                          # High-resolution screenshots and topology diagram (PNG + SVG)
+│   ├── 1_wstep.tex                     # Introduction, motivation, and problem statement
+│   ├── 2_podstawy_technologiczne.tex   # WFP architecture, MpsSvc, registry, NLA, and event logs
+│   ├── 3_architektura_i_dzialanie.tex  # Functional modules, WAL audit engine, and backup flows
+│   ├── 4_srodowisko_i_weryfikacja.tex  # Topology, CI/CD pipeline, unit tests, and acceptance
+│   └── 5_podsumowanie.tex              # Security limitations, compensations, and conclusions
+├── bib/                                # BibTeX references (references.bib) and Polish bst style
+└── images/                             # Screenshots and topology diagram
 ```
 
 ---
@@ -55,12 +55,3 @@ Project developed for the **Operating Systems Security** (*Ochrona Systemów Ope
 ## Compilation
 
 The document is automatically compiled to **`OSS-FW-project.pdf`** and published to GitHub Releases and GitHub Pages on every push to `main`.
-
-To build locally using `pdflatex` and `bibtex`:
-
-```bash
-pdflatex main.tex
-bibtex main
-pdflatex main.tex
-pdflatex main.tex
-```
